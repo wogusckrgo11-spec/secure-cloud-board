@@ -15,6 +15,28 @@ Amazon Linux 2023 기준. **웹서버(퍼블릭 서브넷)** 와 **DB서버(프�
 
 ---
 
+## 0. 저장소 & 클론
+
+저장소: <https://github.com/wogusckrgo11-spec/secure-cloud-board> (비공개)
+
+```bash
+# HTTPS
+git clone https://github.com/wogusckrgo11-spec/secure-cloud-board.git
+
+# SSH
+git clone git@github.com:wogusckrgo11-spec/secure-cloud-board.git
+
+# GitHub CLI
+gh repo clone wogusckrgo11-spec/secure-cloud-board
+
+cd secure-cloud-board/board   # 이 README 와 애플리케이션 코드가 있는 디렉터리
+```
+
+> 애플리케이션 코드는 저장소의 `board/` 하위에 있다. 서버 배포 시에는 `board/` 의
+> **내용물** 을 `/opt/board` 에 배치한다 (4.4 참고).
+
+---
+
 ## 1. 파일 구조와 역할
 
 ```
@@ -211,7 +233,7 @@ sudo dnf install -y nginx python3.11 python3.11-pip git
 sudo useradd --system --home-dir /opt/board --shell /sbin/nologin board
 
 # 코드 배치: board/ "내용물" 을 /opt/board 에 둔다 (systemd WorkingDirectory=/opt/board 와 일치시킴)
-git clone <repo-url> /tmp/repo
+git clone https://github.com/wogusckrgo11-spec/secure-cloud-board.git /tmp/repo
 sudo rsync -a --exclude '.venv' --exclude '__pycache__' /tmp/repo/board/ /opt/board/
 cd /opt/board
 sudo python3.11 -m venv .venv

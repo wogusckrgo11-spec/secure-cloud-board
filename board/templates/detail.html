@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} - 게시판{% endblock %}
+
+{% block content %}
+<article class="post-detail">
+  <h2>{{ post.title }}</h2>
+  <p class="meta">
+    작성자 {{ post.writer }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}
+  </p>
+  {# Jinja2 autoescape 로 HTML 이스케이프됨(XSS 방지). 줄바꿈은 CSS white-space 로 표현 #}
+  <div class="body">{{ post.content }}</div>
+</article>
+
+<div class="actions">
+  <a href="{{ url_for('index') }}">목록</a>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}글쓰기 - 게시판{% endblock %}
+
+{% block content %}
+<form class="post-form" method="post" action="{{ url_for('write') }}">
+  <label>
+    제목
+    <input type="text" name="title" maxlength="200"
+           value="{{ form.title or '' }}" required>
+  </label>
+  <label>
+    작성자
+    <input type="text" name="writer" maxlength="50"
+           value="{{ form.writer or '' }}" placeholder="비우면 '익명'으로 등록">
+  </label>
+  <label>
+    내용
+    <textarea name="content" rows="12" required>{{ form.content or '' }}</textarea>
+  </label>
+  <div class="actions">
+    <button type="submit">등록</button>
+    <a href="{{ url_for('index') }}">취소</a>
+  </div>
+</form>
+{% endblock %}

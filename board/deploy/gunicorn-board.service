@@ -1,0 +1,39 @@
+# /etc/systemd/system/gunicorn-board.service
+#
+# 배치 후:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now gunicorn-board
+#   systemctl status gunicorn-board
+
+[Unit]
+Description=Gunicorn - board Flask app
+After=network.target
+
+[Service]
+Type=simple
+User=board
+Group=board
+WorkingDirectory=/opt/board
+
+# DB 접속정보 등 민감값은 이 파일에서만 주입한다(권한 600, 소유 root:board 권장).
+EnvironmentFile=/etc/board/.env
+
+# 구조도와 동일하게 127.0.0.1:5000 로만 바인딩 → 외부에서 직접 접근 불가, Nginx 만 접근.
+ExecStart=/opt/board/.venv/bin/gunicorn \
+  --workers 3 \
+  --bind 127.0.0.1:5000 \
+  --access-logfile - \
+  --error-logfile - \
+  app:app
+
+Restart=on-failure
+RestartSec=3
+
+# 최소 권한 강화
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

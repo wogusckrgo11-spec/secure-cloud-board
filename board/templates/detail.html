@@ -13,5 +13,10 @@
 
 <div class="actions">
   <a href="{{ url_for('index') }}">목록</a>
+  {# 인증 없는 익명 게시판 - 누구나 삭제 가능. 확인 대화만 거친다. #}
+  <form method="post" action="{{ url_for('delete', post_id=post.id) }}"
+        onsubmit="return confirm('이 게시글을 삭제할까요? 되돌릴 수 없습니다.');">
+    <button type="submit" class="btn-danger">삭제</button>
+  </form>
 </div>
 {% endblock %}

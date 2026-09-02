@@ -5,6 +5,7 @@
   GET  /write       작성 폼
   POST /write       작성 처리 (검증 후 INSERT)
   GET  /posts/<id>  상세 보기
+  POST /posts/<id>/delete  삭제 처리 (인증 없음 - 누구나 삭제)
 
 Gunicorn 진입점: gunicorn "app:app"
 """
@@ -112,6 +113,21 @@ def create_app():
     if post is None:
       abort(404)
     return render_template("detail.html", post=post)
+
+  @app.post("/posts/<int:post_id>/delete")
+  def delete(post_id):
+    # 인증 없는 익명 게시판 - 누구나 삭제 가능 (정책상 확정)
+    conn = db.get_db()
+    with conn.cursor() as cur:
+      # 존재 여부 확인 (detail() 과 동일한 패턴)
+      cur.execute("SELECT id FROM posts WHERE id = %s", (post_id,))
+      if cur.fetchone() is None:
+        abort(404)
+      cur.execute("DELETE FROM posts WHERE id = %s", (post_id,))
+    conn.commit()
+
+    flash("게시글을 삭제했습니다.", "info")
+    return redirect(url_for("index"))
 
   return app
 

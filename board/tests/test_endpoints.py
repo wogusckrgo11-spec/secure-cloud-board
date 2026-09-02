@@ -137,5 +137,26 @@ check("제목이 리터럴로 저장됨", row["title"] == evil, row["title"] if 
 r = c.get("/")
 check("목록 정상 동작", r.status_code == 200, r.status_code)
 
+print("\n[16] POST /posts/<id>/delete (정상 삭제)")
+r = c.post("/write", data={"title": "삭제대상", "content": "본문", "writer": "z"})
+del_id = int(re.search(r"/posts/(\d+)", r.headers["Location"]).group(1))
+before = harness.count()
+r = c.post(f"/posts/{del_id}/delete")
+check("302 리다이렉트", r.status_code == 302, r.status_code)
+check("목록으로 이동", r.headers.get("Location", "").endswith("/"))
+check("DB 행 1개 감소", harness.count() == before - 1)
+r = c.get(f"/posts/{del_id}")
+check("삭제 후 상세는 404", r.status_code == 404, r.status_code)
+
+print("\n[17] POST /posts/99999/delete (없는 글)")
+before = harness.count()
+r = c.post("/posts/99999/delete")
+check("404 응답", r.status_code == 404, r.status_code)
+check("DB 미변경", harness.count() == before)
+
+print("\n[18] GET /posts/<id>/delete (GET 은 허용 안 함)")
+r = c.get(f"/posts/{del_id}/delete")
+check("405 Method Not Allowed", r.status_code == 405, r.status_code)
+
 print(f"\n{'=' * 40}\n결과: {passed} PASS / {failed} FAIL\n{'=' * 40}")
 sys.exit(1 if failed else 0)

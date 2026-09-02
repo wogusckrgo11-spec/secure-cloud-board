@@ -95,6 +95,11 @@ table.post-list {
 }
 
 .actions { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
+.actions form { margin: 0; }
+
+/* 삭제 등 되돌릴 수 없는 동작용 버튼 */
+button.btn-danger { background: #e74c3c; }
+button.btn-danger:hover { background: #c0392b; }
 
 .post-detail { background: #fff; padding: 20px; }
 .post-detail .meta { color: #888; font-size: 13px; }

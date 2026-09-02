@@ -41,7 +41,7 @@ cd secure-cloud-board/board   # 이 README 와 애플리케이션 코드가 있�
 
 ```
 board/
-├── app.py                      # Flask 애플리케이션 팩토리 + 라우트 3개
+├── app.py                      # Flask 애플리케이션 팩토리 + 라우트 4개(목록/작성/상세/삭제)
 ├── db.py                       # PyMySQL 커넥션 헬퍼 (요청 단위 연결/해제)
 ├── config.py                   # 환경변수에서 설정 로드 + 필수값 검증(fail-fast)
 ├── requirements.txt            # 운영 의존성 (Flask, PyMySQL, gunicorn) - 버전 고정
@@ -52,7 +52,7 @@ board/
 │   ├── base.html               #   공통 레이아웃 + flash 메시지 출력
 │   ├── list.html               #   목록 + 페이지네이션
 │   ├── write.html              #   작성 폼 (검증 실패 시 입력값 유지)
-│   └── detail.html             #   상세 보기
+│   └── detail.html             #   상세 보기 + 삭제 버튼(확인 대화 후 POST)
 ├── static/
 │   └── style.css               # 최소 스타일 (Nginx 가 직접 서빙)
 ├── deploy/
@@ -69,7 +69,7 @@ board/
 | `config.py` | DB 접속 정보를 코드에서 분리. 환경변수만 읽고, 없으면 기동 즉시 실패시켜 잘못된 설정으로 뜨는 것을 막는다. |
 | `db.py` | 커넥션 수명 관리를 한곳에 모음. 요청마다 열고 `teardown_appcontext` 에서 닫아 커넥션 누수 방지. 모든 쿼리는 호출부에서 파라미터 바인딩. |
 | `app.py` | 라우팅 + 입력 검증 + 쿼리 실행. 팩토리 패턴이라 테스트/설정 교체가 쉬움. |
-| `schema.sql` | 앱은 스키마를 만들지 않음(권한 최소화). DB 관리자가 1회 실행. 앱 계정은 `posts` 에 `SELECT, INSERT` 만. |
+| `schema.sql` | 앱은 스키마를 만들지 않음(권한 최소화). DB 관리자가 1회 실행. 앱 계정은 `posts` 에 `SELECT, INSERT, DELETE` 만(UPDATE 없음). |
 | `.env.example` | 실제 비밀값은 커밋 금지. 무엇을 채워야 하는지 문서 역할. |
 | `gunicorn-board.service` | 부팅 시 자동 기동/장애 시 재시작. 민감값은 `EnvironmentFile` 로만 주입. |
 | `nginx-board.conf` | 외부 노출은 Nginx 80 만. Flask 는 로컬 5000 에 갇혀 직접 접근 불가. 정적 파일은 Nginx 가 처리. |
@@ -85,9 +85,12 @@ board/
 | **접속정보 분리** | `config.py` 는 `os.environ` 만 참조. 기본값/하드코딩 없음(포트 제외). 운영에선 systemd `EnvironmentFile=/etc/board/.env` 로 주입. |
 | **입력 검증** | `app.py` `write()` — `title`/`content` strip 후 빈 값 차단, 길이 상한(제목 200 / 작성자 50 / 내용 10000), `writer` 빈 값은 `"익명"`. |
 | **XSS** | Jinja2 기본 autoescape 유지. `|safe` 미사용. |
-| **최소 권한** | DB 앱 계정은 `SELECT, INSERT` 만. systemd 에 `NoNewPrivileges`, `ProtectSystem=full`, `ProtectHome` 적용. |
+| **최소 권한** | DB 앱 계정은 `SELECT, INSERT, DELETE` 만(UPDATE 미부여). systemd 에 `NoNewPrivileges`, `ProtectSystem=full`, `ProtectHome` 적용. |
+| **삭제 처리** | `app.py` `delete()` — `POST /posts/<id>/delete` 만 허용(GET 405), 없는 글은 404, `%s` 바인딩으로 `DELETE`. |
 
-> 로그인/세션이 없어 CSRF 는 이번 범위에서 제외. 도입 시 `Flask-WTF` 로 폼 토큰 추가.
+> **삭제 권한**: 로그인이 없는 익명 게시판이라 삭제는 **인증 없이 누구나 가능**하다(상세 페이지 확인 대화만 거침).
+> 운영에서 통제가 필요하면 글별 삭제 비밀번호(작성 시 해시 저장) 또는 관리자 비밀번호(`ADMIN_PASSWORD` 환경변수) 방식으로 확장한다.
+> 로그인/세션이 없어 CSRF 는 이번 범위에서 제외. 도입 시 `Flask-WTF` 로 폼 토큰 추가(작성·삭제 폼 공통).
 > TLS 는 도메인·인증서 전제라 제외. `nginx-board.conf` 주석의 확장 지점 참고.
 
 ---
@@ -141,7 +144,7 @@ kill %1
 
 ### 3.3 테스트 결과
 
-`python tests/test_endpoints.py` → **39 PASS / 0 FAIL**
+`python tests/test_endpoints.py` → **46 PASS / 0 FAIL**
 
 | # | 시나리오 | 검증 내용 | 결과 |
 |---|---|---|---|
@@ -160,6 +163,9 @@ kill %1
 | 13 | `GET /posts/abc` | 404 (`<int:post_id>` 컨버터) | PASS |
 | 14 | **XSS** | `<script>` → `&lt;script&gt;` 이스케이프되어 렌더 | PASS |
 | 15 | **SQL Injection** | `'; DROP TABLE posts; --` 를 리터럴로 저장, 테이블 생존, 목록 정상 | PASS |
+| 16 | `POST /posts/<id>/delete` 정상 | 302 → `/`, DB 행 -1, 삭제 후 상세 404 | PASS |
+| 17 | `POST /posts/99999/delete` | 없는 글 404, DB 미변경 | PASS |
+| 18 | `GET /posts/<id>/delete` | 405 (POST 만 허용) | PASS |
 
 Gunicorn 스모크 테스트: 정상 부팅(worker spawn) → `GET /` 200, `GET /write` 200, `POST /write` 302,
 빈 제목 400, `/posts/<id>` 200(제목·본문·작성자·`created_at` 렌더 확인), `/posts/9999` 404.
@@ -222,6 +228,13 @@ sudo systemctl restart mariadb
 #   비밀번호를 강력한 값으로 수정한 뒤:
 sudo mysql -u root -p < schema.sql
 ```
+
+> **이미 운영 중인 DB 에 삭제 기능을 반영할 때**: `schema.sql` 재실행은 기존 계정 권한을
+> 갱신하지 않는다. DB 서버에서 아래를 1회 실행해 `DELETE` 권한을 추가한다.
+> ```sql
+> GRANT DELETE ON board.posts TO 'board_app'@'10.0.1.10';
+> FLUSH PRIVILEGES;
+> ```
 
 > RDS(MySQL) 를 쓰면 이 EC2 는 불필요하다. RDS 를 프라이빗 서브넷에 두고 db-sg 를
 > 동일하게 적용, `.env` 의 `DB_HOST` 를 RDS 엔드포인트로 지정하면 된다.
